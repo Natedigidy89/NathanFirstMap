@@ -37,7 +37,61 @@ export default {
 
     //Call route once map is ready
     map.on("load", () => {
+        const start = [-122.662323, 45.523751]; // example origin
         const end = [-122.678144, 45.522551]; // example destination
+        // add origin circle to the map
+  map.addLayer({
+    'id': 'origin-circle',
+    'type': 'circle',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'Point',
+              'coordinates': start
+            }
+          }
+        ]
+      }
+    },
+    'paint': {
+      'circle-radius': 10,
+      'circle-color': '#4ce05b'
+    }
+  });
+
+  // add destination circle to the map
+  map.addLayer({
+    'id': 'destination-circle',
+    'type': 'circle',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'Point',
+              'coordinates': end
+            }
+          }
+        ]
+      }
+    },
+    'paint': {
+      'circle-radius': 10,
+      'circle-color': '#f30'
+    }
+  });
+
+  // make an initial directions request on load
         this.getRoute(end);
     });
     },
