@@ -35,6 +35,28 @@ export default {
     // Expose for debugging in console
     window.getRoute = this.getRoute.bind(this);
 
+    //Click to get route
+    map.on("click", (event) => {
+      const coords = [event.lngLat.lng, event.lngLat.lat];
+      
+      // update the destination point
+      map.getSource('destination-circle').setData({
+        type: "FeatureCollection",
+        features: [{
+            type: "Feature",
+            properties: {},
+            geometry: {
+                type: "Point",
+                coordinates: coords,
+            },
+            },
+        ],     
+      });
+
+      //Fetch and draw new route
+      this.getRoute(coords);
+    });
+    
     //Call route once map is ready
     map.on("load", () => {
         const start = [-122.662323, 45.523751]; // example origin
