@@ -21,7 +21,8 @@ export default {
       center,
         zoom,
     });
-
+    
+//Listen for Map moves
     const updateLocation = () => 
       this.$emit("update:modelValue", this.getLocation());
       
@@ -30,7 +31,16 @@ export default {
     
     // assign the map instance to this component's map property
     this.map = map;
-  },
+
+    // Expose for debugging in console
+    window.getRoute = this.getRoute.bind(this);
+
+    //Call route once map is ready
+    map.on("load", () => {
+        const end = [-122.678144, 45.522551]; // example destination
+        this.getRoute(end);
+    });
+    },
 
   // clean up the map instance when the component is unmounted
   unmounted() {
@@ -63,8 +73,45 @@ export default {
             zoom: this.map.getZoom(),
         };
         },
+        async getRoute(end) {
+      const start = [-122.662323, 45.523751]; // fixed start
+
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/cycling/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`
+      );
+      const json = await query.json();
+      const data = json.routes[0];
+      const geojson = {
+        type: "Feature",
+        properties: {},
+        geometry: data.geometry,
+      };
+
+      if (this.map.getSource("route")) {
+        this.map.getSource("route").setData(geojson);
+      } else {
+        this.map.addLayer({
+          id: "route",
+          type: "line",
+          source: {
+            type: "geojson",
+            data: geojson,
+          },
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#3887be",
+            "line-width": 5,
+            "line-opacity": 0.75,
+          },
+        });
+      }
     },
+  },
 };
+
 </script>
 
 <style>
