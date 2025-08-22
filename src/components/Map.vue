@@ -31,6 +31,7 @@
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+// Mapbox access token
 mapboxgl.accessToken =
   "pk.eyJ1IjoibmF0ZTg5IiwiYSI6ImNtZW1sYmtwaTBxeWYyanFyNjVwYWg1dG8ifQ.dh_0BI7N2YRCVq15WUfaXA";
 
@@ -38,12 +39,13 @@ export default {
   props: ["modelValue"],
   data() {
     return {
+      map: null,
       start: [-122.662323, 45.523751],
       end: [-122.678144, 45.522551],
     };
   },
   mounted() {
-    // Enable Mapbox Autofill
+    // Enable Mapbox Autofill on floating inputs
     const autofillElements = this.$el.querySelectorAll("mapbox-address-autofill");
     autofillElements.forEach((el) => (el.accessToken = mapboxgl.accessToken));
 
@@ -59,48 +61,41 @@ export default {
     this.map = map;
     this.$emit("mounted", map);
 
+    // Add start & end points and initial route when map loads
     map.on("load", () => {
-      // Add origin and destination circles
       this.addCircle("origin-circle", this.start, "#4ce05b");
       this.addCircle("destination-circle", this.end, "#f30");
-
-      // Draw initial route
       this.getRoute(this.end);
     });
 
-    // Click map to change destination
+    // Click map to set new destination
     map.on("click", (event) => {
       const coords = [event.lngLat.lng, event.lngLat.lat];
-      this.map.getSource("destination-circle").setData({
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "Point", coordinates: coords },
-          },
-        ],
-      });
+      if (this.map.getSource("destination-circle")) {
+        this.map.getSource("destination-circle").setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: coords } }],
+        });
+      }
       this.getRoute(coords);
     });
 
-    // Update model on move/zoom
+    // Update modelValue on move/zoom
     map.on("move", () => this.$emit("update:modelValue", this.getLocation()));
     map.on("zoom", () => this.$emit("update:modelValue", this.getLocation()));
   },
   methods: {
     resetMap() {
+      // Fly to original center
       this.map.flyTo({ center: this.start, zoom: 12 });
-      this.map.getSource("destination-circle").setData({
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "Point", coordinates: this.end },
-          },
-        ],
-      });
+
+      // Reset destination circle and route
+      if (this.map.getSource("destination-circle")) {
+        this.map.getSource("destination-circle").setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: this.end } }],
+        });
+      }
       this.getRoute(this.end);
     },
     getLocation() {
@@ -114,9 +109,7 @@ export default {
           type: "geojson",
           data: {
             type: "FeatureCollection",
-            features: [
-              { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: coords } },
-            ],
+            features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: coords } }],
           },
         },
         paint: { "circle-radius": 10, "circle-color": color },
@@ -143,14 +136,12 @@ export default {
         });
       }
 
-      // Update instructions sidebar
+      // Update instructions
       const instructions = document.getElementById("instructions");
       if (instructions) {
         const steps = data.legs[0].steps;
         let tripInstructions = "";
-        for (const step of steps) {
-          tripInstructions += `<li>${step.maneuver.instruction}</li>`;
-        }
+        steps.forEach((step) => (tripInstructions += `<li>${step.maneuver.instruction}</li>`));
         instructions.innerHTML = `<p><strong>Trip duration: ${Math.floor(data.duration / 60)} min 🚴</strong></p><ol>${tripInstructions}</ol>`;
       }
     },
@@ -170,7 +161,6 @@ export default {
   height: 100%;
 }
 
-/* Floating shipping/billing form */
 .floating-form {
   position: absolute;
   top: 10px;
