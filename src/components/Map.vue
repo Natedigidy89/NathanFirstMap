@@ -1,211 +1,211 @@
 <template>
-  <div ref="mapContainer" class="map-container"></div>
+  <div class="map-wrapper">
+    <!-- Map container -->
+    <div ref="mapContainer" class="map-container"></div>
+
+    <!-- Floating shipping/billing forms -->
+    <div class="floating-form">
+      <mapbox-address-autofill>
+        <input
+          type="text"
+          placeholder="Shipping Address"
+          autocomplete="shipping address-line1"
+        />
+      </mapbox-address-autofill>
+
+      <mapbox-address-autofill>
+        <input
+          type="text"
+          placeholder="Billing Address"
+          autocomplete="billing address-line1"
+        />
+      </mapbox-address-autofill>
+
+      <!-- Reset Map Button -->
+      <button @click="resetMap">Reset Map</button>
+    </div>
+  </div>
 </template>
 
 <script>
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-mapboxgl.accessToken = "pk.eyJ1IjoibmF0ZTg5IiwiYSI6ImNtZW1sYmtwaTBxeWYyanFyNjVwYWg1dG8ifQ.dh_0BI7N2YRCVq15WUfaXA";
+mapboxgl.accessToken =
+  "pk.eyJ1IjoibmF0ZTg5IiwiYSI6ImNtZW1sYmtwaTBxeWYyanFyNjVwYWg1dG8ifQ.dh_0BI7N2YRCVq15WUfaXA";
 
 export default {
-    props: ["modelValue"],
-
+  props: ["modelValue"],
+  data() {
+    return {
+      start: [-122.662323, 45.523751],
+      end: [-122.678144, 45.522551],
+    };
+  },
   mounted() {
-    const {center, zoom} = this.modelValue;
+    // Enable Mapbox Autofill
+    const autofillElements = this.$el.querySelectorAll("mapbox-address-autofill");
+    autofillElements.forEach((el) => (el.accessToken = mapboxgl.accessToken));
 
-    // create the map instance
+    // Initialize map
+    const { center, zoom } = this.modelValue;
     const map = new mapboxgl.Map({
       container: this.$refs.mapContainer,
-      style: "mapbox://styles/mapbox/standard",
+      style: "mapbox://styles/mapbox/streets-v11",
       center,
-        zoom,
+      zoom,
     });
-    
-//Listen for Map moves
-    const updateLocation = () => 
-      this.$emit("update:modelValue", this.getLocation());
-      
-      map.on("move", updateLocation);
-        map.on("zoom", updateLocation); 
-    
-    // assign the map instance to this component's map property
+
     this.map = map;
+    this.$emit("mounted", map);
 
-    // Expose for debugging in console
-    window.getRoute = this.getRoute.bind(this);
+    map.on("load", () => {
+      // Add origin and destination circles
+      this.addCircle("origin-circle", this.start, "#4ce05b");
+      this.addCircle("destination-circle", this.end, "#f30");
 
-    //Click to get route
+      // Draw initial route
+      this.getRoute(this.end);
+    });
+
+    // Click map to change destination
     map.on("click", (event) => {
       const coords = [event.lngLat.lng, event.lngLat.lat];
-      
-      // update the destination point
-      map.getSource('destination-circle').setData({
+      this.map.getSource("destination-circle").setData({
         type: "FeatureCollection",
-        features: [{
+        features: [
+          {
             type: "Feature",
             properties: {},
-            geometry: {
-                type: "Point",
-                coordinates: coords,
-            },
-            },
-        ],     
+            geometry: { type: "Point", coordinates: coords },
+          },
+        ],
       });
-
-      //Fetch and draw new route
       this.getRoute(coords);
     });
 
-    //Call route once map is ready
-    map.on("load", () => {
-        const start = [-122.662323, 45.523751]; // example origin
-        const end = [-122.678144, 45.522551]; // example destination
-        // add origin circle to the map
-  map.addLayer({
-    'id': 'origin-circle',
-    'type': 'circle',
-    'source': {
-      'type': 'geojson',
-      'data': {
-        'type': 'FeatureCollection',
-        'features': [
-          {
-            'type': 'Feature',
-            'properties': {},
-            'geometry': {
-              'type': 'Point',
-              'coordinates': start
-            }
-          }
-        ]
-      }
-    },
-    'paint': {
-      'circle-radius': 10,
-      'circle-color': '#4ce05b'
-    }
-  });
-
-  // add destination circle to the map
-  map.addLayer({
-    'id': 'destination-circle',
-    'type': 'circle',
-    'source': {
-      'type': 'geojson',
-      'data': {
-        'type': 'FeatureCollection',
-        'features': [
-          {
-            'type': 'Feature',
-            'properties': {},
-            'geometry': {
-              'type': 'Point',
-              'coordinates': end
-            }
-          }
-        ]
-      }
-    },
-    'paint': {
-      'circle-radius': 10,
-      'circle-color': '#f30'
-    }
-  });
-
-  // make an initial directions request on load
-        this.getRoute(end);
-    });
-    },
-
-  // clean up the map instance when the component is unmounted
-  unmounted() {
-    this.map.remove();
-    this.map = null;
+    // Update model on move/zoom
+    map.on("move", () => this.$emit("update:modelValue", this.getLocation()));
+    map.on("zoom", () => this.$emit("update:modelValue", this.getLocation()));
   },
-
-  //watch for changes to the modelValue prop
-    watch: {
-        modelValue(next) {
-            const curr = this.getLocation();
-
-            // if the center has changed, update the map center
-            if (
-                curr.center.lng !== next.center.lng ||
-                curr.center.lat !== next.center.lat ||
-                curr.zoom !== next.zoom
-            ){
-                this.map.flyTo({
-                    center: next.center,
-                    zoom: next.zoom,
-                });
-            }
-        },
+  methods: {
+    resetMap() {
+      this.map.flyTo({ center: this.start, zoom: 12 });
+      this.map.getSource("destination-circle").setData({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {},
+            geometry: { type: "Point", coordinates: this.end },
+          },
+        ],
+      });
+      this.getRoute(this.end);
     },
-    methods: {
-        getLocation() {
-        return {
-            center: this.map.getCenter(),
-            zoom: this.map.getZoom(),
-        };
+    getLocation() {
+      return { center: this.map.getCenter(), zoom: this.map.getZoom() };
+    },
+    addCircle(id, coords, color) {
+      this.map.addLayer({
+        id,
+        type: "circle",
+        source: {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [
+              { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: coords } },
+            ],
+          },
         },
-        async getRoute(end) {
-      const start = [-122.662323, 45.523751]; // fixed start
-
+        paint: { "circle-radius": 10, "circle-color": color },
+      });
+    },
+    async getRoute(end) {
+      const start = this.start;
       const query = await fetch(
         `https://api.mapbox.com/directions/v5/mapbox/cycling/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`
       );
       const json = await query.json();
       const data = json.routes[0];
-      const geojson = {
-        type: "Feature",
-        properties: {},
-        geometry: data.geometry,
-      };
 
+      const geojson = { type: "Feature", properties: {}, geometry: data.geometry };
       if (this.map.getSource("route")) {
         this.map.getSource("route").setData(geojson);
       } else {
         this.map.addLayer({
           id: "route",
           type: "line",
-          source: {
-            type: "geojson",
-            data: geojson,
-          },
-          layout: {
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint: {
-            "line-color": "#3887be",
-            "line-width": 5,
-            "line-opacity": 0.75,
-          },
+          source: { type: "geojson", data: geojson },
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#3887be", "line-width": 5, "line-opacity": 0.75 },
         });
       }
-      // get the sidebar and add the instructions
-const instructions = document.getElementById('instructions');
-const steps = data.legs[0].steps;
 
-let tripInstructions = '';
-for (const step of steps) {
-  tripInstructions += `<li>${step.maneuver.instruction}</li>`;
-}
-
-instructions.innerHTML = `<p id="prompt">📍 Click the map to get directions to another destination</p><p><strong>Trip duration: ${Math.floor(
-  data.duration / 60
-)} min 🚴 </strong></p><ol>${tripInstructions}</ol>`;
+      // Update instructions sidebar
+      const instructions = document.getElementById("instructions");
+      if (instructions) {
+        const steps = data.legs[0].steps;
+        let tripInstructions = "";
+        for (const step of steps) {
+          tripInstructions += `<li>${step.maneuver.instruction}</li>`;
+        }
+        instructions.innerHTML = `<p><strong>Trip duration: ${Math.floor(data.duration / 60)} min 🚴</strong></p><ol>${tripInstructions}</ol>`;
+      }
     },
   },
 };
-
 </script>
 
-<style>
-/* make the map container fill its parent */
+<style scoped>
+.map-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
 .map-container {
   width: 100%;
   height: 100%;
+}
+
+/* Floating shipping/billing form */
+.floating-form {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  min-width: 250px;
+  z-index: 10;
+}
+
+.floating-form input {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.floating-form button {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #3887be;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.floating-form button:hover {
+  background: #2a6a96;
 }
 </style>
