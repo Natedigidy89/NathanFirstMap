@@ -3,23 +3,31 @@
     <!-- Map container -->
     <div ref="mapContainer" class="map-container"></div>
 
-    <!-- Floating shipping/billing forms -->
+    <!-- Floating form -->
     <div class="floating-form">
-      <mapbox-address-autofill>
-        <input
-          type="text"
-          placeholder="Shipping Address"
-          autocomplete="shipping address-line1"
-        />
-      </mapbox-address-autofill>
-
-      <mapbox-address-autofill>
-        <input
-          type="text"
-          placeholder="Billing Address"
-          autocomplete="billing address-line1"
-        />
-      </mapbox-address-autofill>
+      <form id="shipping-form">
+        <h3>Shipping Address</h3>
+        <div class="field-group">
+          <div>
+            <label for="address">Address</label>
+            <input id="address" name="address" type="text" autocomplete="address-line1" />
+          </div>
+        </div>
+        <div class="field-group">
+          <div>
+            <label for="city">City</label>
+            <input id="city" name="city" type="text" autocomplete="address-level2" />
+          </div>
+          <div>
+            <label for="state">State</label>
+            <input id="state" name="state" type="text" autocomplete="address-level1" />
+          </div>
+          <div>
+            <label for="postcode">Postcode</label>
+            <input id="postcode" name="postcode" type="text" autocomplete="postal-code" />
+          </div>
+        </div>
+      </form>
 
       <!-- Reset Map Button -->
       <button @click="resetMap">Reset Map</button>
@@ -31,7 +39,6 @@
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// Mapbox access token
 mapboxgl.accessToken =
   "pk.eyJ1IjoibmF0ZTg5IiwiYSI6ImNtZW1sYmtwaTBxeWYyanFyNjVwYWg1dG8ifQ.dh_0BI7N2YRCVq15WUfaXA";
 
@@ -45,10 +52,6 @@ export default {
     };
   },
   mounted() {
-    // Enable Mapbox Autofill on floating inputs
-    const autofillElements = this.$el.querySelectorAll("mapbox-address-autofill");
-    autofillElements.forEach((el) => (el.accessToken = mapboxgl.accessToken));
-
     // Initialize map
     const { center, zoom } = this.modelValue;
     const map = new mapboxgl.Map({
@@ -61,14 +64,26 @@ export default {
     this.map = map;
     this.$emit("mounted", map);
 
-    // Add start & end points and initial route when map loads
+    // Setup Autofill once Mapbox Search script loads
+    const script = document.createElement("script");
+    script.src = "https://api.mapbox.com/search-js/v1.2.0/web.js";
+    script.defer = true;
+    script.onload = () => {
+      mapboxsearch.autofill({
+        accessToken: mapboxgl.accessToken,
+        // Attach to your form
+        input: document.getElementById("address"),
+      });
+    };
+    document.head.appendChild(script);
+
+    // Map load setup
     map.on("load", () => {
       this.addCircle("origin-circle", this.start, "#4ce05b");
       this.addCircle("destination-circle", this.end, "#f30");
       this.getRoute(this.end);
     });
 
-    // Click map to set new destination
     map.on("click", (event) => {
       const coords = [event.lngLat.lng, event.lngLat.lat];
       if (this.map.getSource("destination-circle")) {
@@ -80,16 +95,12 @@ export default {
       this.getRoute(coords);
     });
 
-    // Update modelValue on move/zoom
     map.on("move", () => this.$emit("update:modelValue", this.getLocation()));
     map.on("zoom", () => this.$emit("update:modelValue", this.getLocation()));
   },
   methods: {
     resetMap() {
-      // Fly to original center
       this.map.flyTo({ center: this.start, zoom: 12 });
-
-      // Reset destination circle and route
       if (this.map.getSource("destination-circle")) {
         this.map.getSource("destination-circle").setData({
           type: "FeatureCollection",
@@ -122,8 +133,8 @@ export default {
       );
       const json = await query.json();
       const data = json.routes[0];
-
       const geojson = { type: "Feature", properties: {}, geometry: data.geometry };
+
       if (this.map.getSource("route")) {
         this.map.getSource("route").setData(geojson);
       } else {
@@ -134,15 +145,6 @@ export default {
           layout: { "line-join": "round", "line-cap": "round" },
           paint: { "line-color": "#3887be", "line-width": 5, "line-opacity": 0.75 },
         });
-      }
-
-      // Update instructions
-      const instructions = document.getElementById("instructions");
-      if (instructions) {
-        const steps = data.legs[0].steps;
-        let tripInstructions = "";
-        steps.forEach((step) => (tripInstructions += `<li>${step.maneuver.instruction}</li>`));
-        instructions.innerHTML = `<p><strong>Trip duration: ${Math.floor(data.duration / 60)} min 🚴</strong></p><ol>${tripInstructions}</ol>`;
       }
     },
   },
@@ -166,36 +168,40 @@ export default {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: #fff;
   padding: 1rem;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  min-width: 250px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  max-width: 800px;
   z-index: 10;
 }
 
-.floating-form input {
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.field-group > div {
+  flex: 1;
+  min-width: 100px;
+}
+
+label {
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+
+input {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   width: 100%;
-  font-size: 1rem;
-}
-
-.floating-form button {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: #3887be;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.floating-form button:hover {
-  background: #2a6a96;
 }
 </style>
