@@ -9,12 +9,25 @@ import "mapbox-gl/dist/mapbox-gl.css";
 mapboxgl.accessToken = "pk.eyJ1IjoibmF0ZTg5IiwiYSI6ImNtZW1sYmtwaTBxeWYyanFyNjVwYWg1dG8ifQ.dh_0BI7N2YRCVq15WUfaXA";
 
 export default {
+    props: ["modelValue"],
+
   mounted() {
+    const {center, zoom} = this.modelValue;
+
+    // create the map instance
     const map = new mapboxgl.Map({
       container: this.$refs.mapContainer,
       style: "mapbox://styles/mapbox/standard",
+      center,
+        zoom,
     });
 
+    const updateLocation = () => 
+      this.$emit("update:modelValue", this.getLocation());
+      
+      map.on("move", updateLocation);
+        map.on("zoom", updateLocation); 
+    
     // assign the map instance to this component's map property
     this.map = map;
   },
@@ -23,7 +36,15 @@ export default {
   unmounted() {
     this.map.remove();
     this.map = null;
-  }
+  },
+    methods: {
+        getLocation() {
+        return {
+            center: this.map.getCenter(),
+            zoom: this.map.getZoom(),
+        };
+        },
+    },
 };
 </script>
 
