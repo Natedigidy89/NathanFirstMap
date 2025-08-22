@@ -3,6 +3,16 @@
     Longitude: {{ location.center.lng.toFixed(4) }} | Latitude:
     {{ location.center.lat.toFixed(4) }} | Zoom: 
     {{ location.zoom.toFixed(2)   }} |
+    <button
+      @click="
+        location = {
+          center: { lng: -2.5269874, lat: 51.7212717, },
+          zoom: 9,
+        }
+        "
+        >
+          Reset Map
+      </button>
   </div>
   <Map v-model="location" />
 </template>

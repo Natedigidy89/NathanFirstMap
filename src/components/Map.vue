@@ -37,6 +37,25 @@ export default {
     this.map.remove();
     this.map = null;
   },
+
+  //watch for changes to the modelValue prop
+    watch: {
+        modelValue(next) {
+            const curr = this.getLocation();
+
+            // if the center has changed, update the map center
+            if (
+                curr.center.lng !== next.center.lng ||
+                curr.center.lat !== next.center.lat ||
+                curr.zoom !== next.zoom
+            ){
+                this.map.flyTo({
+                    center: next.center,
+                    zoom: next.zoom,
+                });
+            }
+        },
+    },
     methods: {
         getLocation() {
         return {
