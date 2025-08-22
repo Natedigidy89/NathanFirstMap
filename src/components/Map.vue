@@ -56,7 +56,7 @@ export default {
       //Fetch and draw new route
       this.getRoute(coords);
     });
-    
+
     //Call route once map is ready
     map.on("load", () => {
         const start = [-122.662323, 45.523751]; // example origin
@@ -184,6 +184,18 @@ export default {
           },
         });
       }
+      // get the sidebar and add the instructions
+const instructions = document.getElementById('instructions');
+const steps = data.legs[0].steps;
+
+let tripInstructions = '';
+for (const step of steps) {
+  tripInstructions += `<li>${step.maneuver.instruction}</li>`;
+}
+
+instructions.innerHTML = `<p id="prompt">📍 Click the map to get directions to another destination</p><p><strong>Trip duration: ${Math.floor(
+  data.duration / 60
+)} min 🚴 </strong></p><ol>${tripInstructions}</ol>`;
     },
   },
 };
