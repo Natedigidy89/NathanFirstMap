@@ -175,6 +175,24 @@ export default {
   max-width: 800px;
   z-index: 10;
 }
+/* Reset Map Button */
+.floating-form button {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: #007bff;   /* bright bootstrap blue */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: block;        /* makes it span full width */
+  margin-left: auto;     /* center horizontally */
+  margin-right: auto;    /* center horizontally */
+}
+
+.floating-form button:hover {
+  background: #0056b3;   /* darker blue on hover */
+}
 
 form {
   display: flex;
